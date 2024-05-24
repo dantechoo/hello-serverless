@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+      - uat
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless@3
+
+      - name: Install AWS CLI
+        run: sudo apt-get install -y python3-pip && pip3 install awscli
+
+      - name: Set up AWS credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+
+      - name: Deploy to Dev
+        if: github.ref == 'refs/heads/dev'
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION_DEV }}
+          #SLS_TOKEN: ${{ secrets.SLS_TOKEN }}
+        run: |
+          aws configure set region $AWS_DEFAULT_REGION --profile default
+          aws sts get-caller-identity
+          serverless deploy --stage dev --region $AWS_DEFAULT_REGION
+
+      - name: Deploy to UAT
+        if: github.ref == 'refs/heads/uat'
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION_UAT }}
+          #SLS_TOKEN: ${{ secrets.SLS_TOKEN }}
+        run: |
+          aws configure set region $AWS_DEFAULT_REGION --profile default
+          aws sts get-caller-identity
+          serverless deploy --stage uat --region $AWS_DEFAULT_REGION
+
+      - name: Deploy to Prod
+        if: github.ref == 'refs/heads/master'
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION_PROD }}
+          #SLS_TOKEN: ${{ secrets.SLS_TOKEN }}
+        run: |
+          aws configure set region $AWS_DEFAULT_REGION --profile default
+          aws sts get-caller-identity
+          serverless deploy --stage prod --region $AWS_DEFAULT_REGION
